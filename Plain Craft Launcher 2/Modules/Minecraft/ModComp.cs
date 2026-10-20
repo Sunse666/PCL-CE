@@ -1467,6 +1467,15 @@ public static class ModComp
 
             try
             {
+                // 翻译服务由镜像站提供，官方源模式下需用户先启用镜像
+                if (!ModDownload.DlSourceMirrorEnabled)
+                {
+                    ModMain.MyMsgBox(Lang.Text("Download.Comp.Detail.DescriptionNoTranslation"),
+                        Lang.Text("Download.Comp.Detail.DescriptionTranslationFailed"),
+                        Lang.Text("Download.Comp.Detail.KnownButton"));
+                    return null;
+                }
+
                 var jsonObject = (JsonObject)await 
                     Requester.FetchJsonAsync($"https://mod.mcimirror.top/translate/{from}/{Id}");
                 if (jsonObject.ContainsKey("translated"))

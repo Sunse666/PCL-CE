@@ -35,6 +35,10 @@ public static class UpdateManager
     
     public static UpdateEnums.VersionStatus GetVersionStatus()
     {
+        // 本地优先策略：不联网检查版本。反馈前的校验依赖此结果，按“最新版”处理以免误判为检查失败。
+        if (!LocalFirstPolicy.AllowUpdate)
+            return UpdateEnums.VersionStatus.Latest;
+
         try
         {
             if (IsCurrentVersionBeta && (int)Config.Update.UpdateChannel != 1)
@@ -72,6 +76,12 @@ public static class UpdateManager
 
     public static void UpdateStart(UpdateEnums.UpdateType type, string receivedKey = null, bool forceValidated = false)
     {
+        if (!LocalFirstPolicy.AllowUpdate)
+        {
+            ModBase.Log("[Update] 本地优先策略已启用，已忽略更新请求");
+            return;
+        }
+
         var dlTargetPath = ModBase.exePath + @"PCL\Plain Craft Launcher Community Edition.exe";
         ModBase.RunInNewThread(() =>
         {
@@ -165,6 +175,12 @@ public static class UpdateManager
 
     public static void UpdateRestart(bool triggerRestartAndByEnd, bool triggerRestart = true)
     {
+        if (!LocalFirstPolicy.AllowUpdate)
+        {
+            ModBase.Log("[Update] 本地优先策略已启用，已忽略重启安装请求");
+            return;
+        }
+
         try
         {
             var fileName = ModBase.exePath + @"PCL\Plain Craft Launcher Community Edition.exe";
@@ -207,6 +223,15 @@ public static class UpdateManager
     {
         // 注意：如果要自行实现这个功能，请换用另一个文件路径，以免与官方版本冲突
         var latestPCLPath = Path.Combine(ModBase.pathTemp, "CE-Latest.exe");
+
+        if (!LocalFirstPolicy.AllowUpdate)
+        {
+            // 本地优先策略：不再从云端获取最新版，直接把当前程序作为整合包打包载体。
+            ModBase.Log("[System] 本地优先策略已启用，使用当前程序作为打包载体");
+            ModBase.CopyFile(Basics.ExecutablePath, latestPCLPath);
+            return;
+        }
+
         var target = remoteServer.GetLatestVersion(UpdateChannel.stable,
             SystemInfo.IsArm64System ? UpdateArch.arm64 : UpdateArch.x64);
         if (target is null)
@@ -237,12 +262,25 @@ public static class UpdateManager
 
     private static void LoadOnlineInfo()
     {
-        ScheduleBasedOnConfig();
-        AnnouncementService.Load();
+        if (LocalFirstPolicy.AllowUpdate)
+            ScheduleBasedOnConfig();
+        else
+            ModBase.Log("[Update] 本地优先策略已启用，跳过自动更新检查");
+
+        if (LocalFirstPolicy.AllowAnnouncement)
+            AnnouncementService.Load();
+        else
+            ModBase.Log("[System] 本地优先策略已启用，跳过云端公告");
     }
 
     private static void ScheduleBasedOnConfig()
     {
+        if (!LocalFirstPolicy.AllowUpdate)
+        {
+            ModBase.Log("[Update] 本地优先策略已启用，不自动检查更新");
+            return;
+        }
+
         switch (Config.Update.UpdateMode)
         {
             case LauncherAutoUpdateBehavior.DownloadAndInstall:

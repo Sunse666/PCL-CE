@@ -907,16 +907,20 @@ public static class ModDownloadLib
 
             task.Progress = 0.1d;
             var sources = new List<string>();
-            // BMCLAPI 源
+            // BMCLAPI 源（镜像需用户主动启用）
             var bmclapiInherit = downloadInfo.Inherit;
             if (bmclapiInherit == "1.8" || bmclapiInherit == "1.9")
                 bmclapiInherit += ".0"; // #4281
-            if (downloadInfo.IsPreview)
-                sources.Add("https://bmclapi2.bangbang93.com/optifine/" + bmclapiInherit + "/HD_U_" +
-                            downloadInfo.DisplayName.Replace(downloadInfo.Inherit + " ", "").Replace(" ", "/"));
-            else
-                sources.Add("https://bmclapi2.bangbang93.com/optifine/" + bmclapiInherit + "/HD_U/" +
-                            downloadInfo.DisplayName.Replace(downloadInfo.Inherit + " ", ""));
+            if (ModDownload.DlSourceMirrorEnabled)
+            {
+                if (downloadInfo.IsPreview)
+                    sources.Add("https://bmclapi2.bangbang93.com/optifine/" + bmclapiInherit + "/HD_U_" +
+                                downloadInfo.DisplayName.Replace(downloadInfo.Inherit + " ", "").Replace(" ", "/"));
+                else
+                    sources.Add("https://bmclapi2.bangbang93.com/optifine/" + bmclapiInherit + "/HD_U/" +
+                                downloadInfo.DisplayName.Replace(downloadInfo.Inherit + " ", ""));
+            }
+
             // 官方源
             string pageData;
             try
@@ -1147,16 +1151,20 @@ public static class ModDownloadLib
             task =>
             {
                 var sources = new List<string>();
-                // BMCLAPI 源
+                // BMCLAPI 源（镜像需用户主动启用）
                 var bmclapiInherit = downloadInfo.Inherit;
                 if (bmclapiInherit == "1.8" || bmclapiInherit == "1.9")
                     bmclapiInherit += ".0"; // #4281
-                if (downloadInfo.IsPreview)
-                    sources.Add("https://bmclapi2.bangbang93.com/optifine/" + bmclapiInherit + "/HD_U_" +
-                                downloadInfo.DisplayName.Replace(downloadInfo.Inherit + " ", "").Replace(" ", "/"));
-                else
-                    sources.Add("https://bmclapi2.bangbang93.com/optifine/" + bmclapiInherit + "/HD_U/" +
-                                downloadInfo.DisplayName.Replace(downloadInfo.Inherit + " ", ""));
+                if (ModDownload.DlSourceMirrorEnabled)
+                {
+                    if (downloadInfo.IsPreview)
+                        sources.Add("https://bmclapi2.bangbang93.com/optifine/" + bmclapiInherit + "/HD_U_" +
+                                    downloadInfo.DisplayName.Replace(downloadInfo.Inherit + " ", "").Replace(" ", "/"));
+                    else
+                        sources.Add("https://bmclapi2.bangbang93.com/optifine/" + bmclapiInherit + "/HD_U/" +
+                                    downloadInfo.DisplayName.Replace(downloadInfo.Inherit + " ", ""));
+                }
+
                 // 官方源
                 string pageData;
                 try
@@ -1647,7 +1655,8 @@ public static class ModDownloadLib
                 var neo = (ModDownload.DlNeoForgeListEntry)info;
                 var url = neo.UrlBase + "-installer.jar";
                 files.Add(new DownloadFile(
-                    new[] { url.Replace("maven.neoforged.net/releases", "bmclapi2.bangbang93.com/maven"), url }, target,
+                    ModDownload.DlSourceOrder(new[] { url },
+                        new[] { url.Replace("maven.neoforged.net/releases", "bmclapi2.bangbang93.com/maven") }), target,
                     new ModBase.FileChecker(64 * 1024)));
             }
             else if (info.forgeType == ModDownload.DlForgelikeEntry.ForgelikeType.Cleanroom)
@@ -1662,11 +1671,15 @@ public static class ModDownloadLib
                 // Forge
                 var forge = (ModDownload.DlForgeVersionEntry)info;
                 files.Add(new DownloadFile(
-                    new[]
-                    {
-                        $"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/{forge.Inherit}-{forge.FileVersion}/forge-{forge.Inherit}-{forge.FileVersion}-{forge.Category}.{forge.FileExtension}",
-                        $"https://files.minecraftforge.net/maven/net/minecraftforge/forge/{forge.Inherit}-{forge.FileVersion}/forge-{forge.Inherit}-{forge.FileVersion}-{forge.Category}.{forge.FileExtension}"
-                    }, target, new ModBase.FileChecker(64 * 1024, hash: forge.Hash)));
+                    ModDownload.DlSourceOrder(
+                        new[]
+                        {
+                            $"https://files.minecraftforge.net/maven/net/minecraftforge/forge/{forge.Inherit}-{forge.FileVersion}/forge-{forge.Inherit}-{forge.FileVersion}-{forge.Category}.{forge.FileExtension}"
+                        },
+                        new[]
+                        {
+                            $"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/{forge.Inherit}-{forge.FileVersion}/forge-{forge.Inherit}-{forge.FileVersion}-{forge.Category}.{forge.FileExtension}"
+                        }), target, new ModBase.FileChecker(64 * 1024, hash: forge.Hash)));
             }
 
             // 构造加载器
@@ -2033,7 +2046,8 @@ public static class ModDownloadLib
                 var neo = (ModDownload.DlNeoForgeListEntry)info;
                 var url = neo.UrlBase + "-installer.jar";
                 files.Add(new DownloadFile(
-                    new[] { url.Replace("maven.neoforged.net/releases", "bmclapi2.bangbang93.com/maven"), url },
+                    ModDownload.DlSourceOrder(new[] { url },
+                        new[] { url.Replace("maven.neoforged.net/releases", "bmclapi2.bangbang93.com/maven") }),
                     installerAddress, new ModBase.FileChecker(64 * 1024)));
             }
             else if (info.forgeType == ModDownload.DlForgelikeEntry.ForgelikeType.Cleanroom)
@@ -2050,11 +2064,10 @@ public static class ModDownloadLib
                 var fileName =
                     $"{forge.Inherit.Replace("-", "_")}-{forge.FileVersion}/forge-{forge.Inherit.Replace("-", "_")}-{forge.FileVersion}-{forge.Category}.{forge.FileExtension}";
                 files.Add(new DownloadFile(
-                    new[]
-                    {
-                        $"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/{fileName}",
-                        $"https://files.minecraftforge.net/maven/net/minecraftforge/forge/{fileName}"
-                    }, installerAddress, new ModBase.FileChecker(64 * 1024, hash: forge.Hash)));
+                    ModDownload.DlSourceOrder(
+                        new[] { $"https://files.minecraftforge.net/maven/net/minecraftforge/forge/{fileName}" },
+                        new[] { $"https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/{fileName}" }),
+                    installerAddress, new ModBase.FileChecker(64 * 1024, hash: forge.Hash)));
             }
 
             task.output = files;
@@ -2562,17 +2575,31 @@ public static class ModDownloadLib
             try
             {
                 ModBase.Log("[Download] 刷新 Forge 推荐版本缓存开始");
-                var result = ModNet.NetGetCodeByLoader("https://bmclapi2.bangbang93.com/forge/promos");
+                // 镜像源需用户主动启用，默认走官方发布页
+                var result = ModNet.NetGetCodeByLoader(ModDownload.DlSourceMirrorEnabled
+                    ? "https://bmclapi2.bangbang93.com/forge/promos"
+                    : "https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json");
                 if (result.Length < 1000) throw new Exception(Lang.Text("Minecraft.Download.Error.ForgePromosResultTooShort", result));
-                var resultJson = (JsonNode)ModBase.GetJson(result);
+                var resultJson = ModBase.GetJson(result);
                 var recommendedList = new List<string>();
-                foreach (JsonObject Version in resultJson.AsArray())
+                if (resultJson is JsonArray promoArray) // BMCLAPI 的数组格式
                 {
-                    if (Version["name"] is null || Version["build"] is null) continue;
-                    var name = (string)Version["name"];
-                    if (!name.EndsWithF("-recommended")) continue;
-                    recommendedList.Add("\"" + name.Replace("-recommended",
-                        "\":\"" + Version["build"]["version"] + "\""));
+                    foreach (var node in promoArray)
+                    {
+                        if (node is not JsonObject version) continue;
+                        var build = version["build"]?["version"]?.ToString();
+                        var name = (string?)version["name"];
+                        if (build is null || name is null || !name.EndsWithF("-recommended")) continue;
+                        recommendedList.Add("\"" + name.Replace("-recommended", "\":\"" + build + "\""));
+                    }
+                }
+                else if (resultJson?["promos"] is JsonObject promoMap) // 官方的键值对格式
+                {
+                    foreach (var (name, version) in promoMap)
+                    {
+                        if (!name.EndsWithF("-recommended")) continue;
+                        recommendedList.Add("\"" + name.Replace("-recommended", "\":\"" + version + "\""));
+                    }
                 }
 
                 if (recommendedList.Count < 5)
@@ -2935,7 +2962,7 @@ public static class ModDownloadLib
             var officialUrl = $"https://meta.fabricmc.net/v2/versions/loader/{safeName}/{fabricVersion}/profile/json";
 
             string json = null;
-            foreach (var url in new[] { bmclapiUrl, officialUrl })
+            foreach (var url in ModDownload.DlSourceOrder(new[] { officialUrl }, new[] { bmclapiUrl }))
             {
                 try
                 {

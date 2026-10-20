@@ -45,11 +45,19 @@ public partial class PageSetupLauncherMisc
     public void Reload()
     {
         // 系统设置
-        ComboSystemActivity.SelectedIndex = States.System.AnnounceSolution;
+        // 本地优先策略：公告被强制关闭，此项不再反映用户配置，统一显示为「已禁用」。
+        // 同步显示时屏蔽事件，避免触发「禁用公告」确认框，也避免把展示值回写到配置。
+        SetComboSystemActivityDisplay(LocalFirstPolicy.AllowAnnouncement
+            ? States.System.AnnounceSolution
+            : 2);
         CheckSystemDisableHardwareAcceleration.Checked = Config.System.DisableHardwareAcceleration;
         SliderAniFPS.Value = Config.System.AnimationFpsLimit;
         SliderMaxLog.Value = Config.System.MaxGameLog;
         CheckSystemTelemetry.Checked = Config.System.Telemetry;
+
+        // 本地优先策略：公告与遥测被强制关闭，相关控件只作状态展示
+        if (!LocalFirstPolicy.AllowAnnouncement) ComboSystemActivity.IsEnabled = false;
+        if (!LocalFirstPolicy.AllowTelemetry) CheckSystemTelemetry.IsEnabled = false;
 
         // 网络
         TextSystemHttpProxy.Text = Config.Network.HttpProxy.CustomAddress;
@@ -63,6 +71,19 @@ public partial class PageSetupLauncherMisc
         CheckDebugSkipCopy.Checked = Config.Debug.DontCopy;
         CheckDebugMode.Checked = Config.Debug.Enabled;
         CheckDebugDelay.Checked = Config.Debug.AddRandomDelay;
+    }
+
+    /// <summary>
+    ///     同步公告选项的显示值，但不回写配置、不触发「禁用公告」确认框。
+    ///     Reload 只负责把配置搬到界面，不应产生写操作或弹窗。
+    /// </summary>
+    private void SetComboSystemActivityDisplay(int index)
+    {
+        if (ComboSystemActivity.SelectedIndex == index)
+            return;
+        ComboSystemActivity.SelectionChanged -= ComboSystemActivity_OnSelectionChanged;
+        ComboSystemActivity.SelectedIndex = index;
+        ComboSystemActivity.SelectionChanged += ComboSystemActivity_OnSelectionChanged;
     }
 
     // 初始化

@@ -214,6 +214,13 @@ public sealed class LobbyController
 
     private static async Task<bool> _SendTelemetryAsync(bool isHost)
     {
+        // 本地优先策略：不上报联机数据。返回 true 以免影响联机本身的使用。
+        if (!LocalFirstPolicy.AllowTelemetry)
+        {
+            LogWrapper.Info("Link", "本地优先策略已启用，跳过联机数据上报");
+            return true;
+        }
+
         LogWrapper.Info("Link", "开始发送联机数据");
         var servers = Config.Link.CustomRelayServer;
         var serverType = Config.Link.ServerType;

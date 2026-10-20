@@ -7,6 +7,13 @@ public static class AnnouncementService
 {
     public static void Load()
     {
+        // 本地优先策略：公告内容可携带命令、下载、写配置等本地动作，此处整体关闭。
+        if (!LocalFirstPolicy.AllowAnnouncement)
+        {
+            ModBase.Log("[System] 本地优先策略已启用，跳过云端公告");
+            return;
+        }
+
         if (States.System.AnnounceSolution > 1)
             return;
 
@@ -32,13 +39,15 @@ public static class AnnouncementService
                     {
                         if (EventTypeMapper.TryParse(
                                 item.Btn1.Command, out var eventType))
-                            CustomEvent.Raise(eventType, item.Btn1.CommandParameter);
+                            CustomEvent.Raise(eventType, item.Btn1.CommandParameter,
+                                CustomEventSource.Remote);
                     },
                     button2Action: () =>
                     {
                         if (EventTypeMapper.TryParse(
                                 item.Btn2.Command, out var eventType))
-                            CustomEvent.Raise(eventType, item.Btn2.CommandParameter);
+                            CustomEvent.Raise(eventType, item.Btn2.CommandParameter,
+                                CustomEventSource.Remote);
                     });
             }
         });

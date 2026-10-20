@@ -84,6 +84,8 @@ public sealed partial class TelemetryService
     // 错误上报
     public static void ReportException(Exception ex, string plain, LogLevel level)
     {
+        if (!LocalFirstPolicy.AllowTelemetry) return;
+
         var sentryEvent = new SentryEvent(ex)
         {
             Level = level.RealLevel() switch
@@ -153,6 +155,13 @@ public sealed partial class TelemetryService
     [LifecycleStart]
     private static async Task _StartAsync()
     {
+        // 本地优先策略：整体关闭遥测，包括 Sentry 上报与 STUN 探测。
+        if (!LocalFirstPolicy.AllowTelemetry)
+        {
+            Context.Info("本地优先策略已启用，跳过遥测初始化");
+            return;
+        }
+
         if (!Config.System.Telemetry) return;
         _InitSentry();
         

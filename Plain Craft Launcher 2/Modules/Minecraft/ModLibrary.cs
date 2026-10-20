@@ -429,11 +429,10 @@ public static class ModLibrary
         {
             ModBase.Log("[Minecraft] 开始获取 Authlib-Injector 下载信息");
             authlibDownloadInfo = (JsonObject)ModBase.GetJson(ModNet.NetGetCodeByLoader(
-                new[]
-                {
-                    "https://authlib-injector.yushi.moe/artifact/latest.json",
-                    "https://bmclapi2.bangbang93.com/mirrors/authlib-injector/artifact/latest.json"
-                }, isJson: true));
+                ModDownload.DlSourceOrder(
+                    new[] { "https://authlib-injector.yushi.moe/artifact/latest.json" },
+                    new[] { "https://bmclapi2.bangbang93.com/mirrors/authlib-injector/artifact/latest.json" }),
+                isJson: true));
         }
         catch (Exception ex)
         {
@@ -451,12 +450,12 @@ public static class ModLibrary
                     .Replace("bmclapi2.bangbang93.com/mirrors/authlib-injector", "authlib-injector.yushi.moe");
                 ModBase.Log("[Minecraft] Authlib-Injector 需要更新：" + downloadAddress, ModBase.LogLevel.Developer);
                 result.Add(new DownloadFile(
-                    new[]
-                    {
-                        downloadAddress,
-                        downloadAddress.Replace("authlib-injector.yushi.moe",
-                            "bmclapi2.bangbang93.com/mirrors/authlib-injector")
-                    }, authlibTargetFile,
+                    ModDownload.DlSourceOrder(new[] { downloadAddress },
+                        new[]
+                        {
+                            downloadAddress.Replace("authlib-injector.yushi.moe",
+                                "bmclapi2.bangbang93.com/mirrors/authlib-injector")
+                        }), authlibTargetFile,
                     new ModBase.FileChecker(hash: authlibDownloadInfo["checksums"]["sha256"].ToString())));
             }
         }
@@ -569,7 +568,7 @@ public static class ModLibrary
                 if (token.Url.Contains("launcher.mojang.com/v1/objects") || token.Url.Contains("client.txt") ||
                     token.Url.Contains(".tsrg"))
                     urls.AddRange(ModDownload.DlSourceLauncherOrMetaGet(token.Url)); // Mappings（#4425）
-                if (token.Url.Contains("maven"))
+                if (ModDownload.DlSourceMirrorEnabled && token.Url.Contains("maven"))
                 {
                     var bmclapiUrl = token.Url
                         .Replace(token.Url.Substring(0, token.Url.IndexOfF("maven")),

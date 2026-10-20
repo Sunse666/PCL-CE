@@ -309,8 +309,7 @@ public static class ModDownload
             default:
             {
                 DlSourceLoader(loader,
-                    new List<KeyValuePair<ModLoader.LoaderTask<string, DlClientListResult>, int>>
-                        { new(dlClientListMojangLoader, 60), new(dlClientListBmclapiLoader, 60 + 60) },
+                    DlVersionListLoaders(dlClientListMojangLoader, 60, dlClientListBmclapiLoader, 60 + 60),
                     loader.isForceRestarting);
                 break;
             }
@@ -350,7 +349,9 @@ public static class ModDownload
                 try
                 {
                     var unlistedJson = (JsonObject)Requester.FetchJson(
-                        "https://alist.8mi.tech/d/mirror/unlisted-versions-of-minecraft/Auto/version_manifest.json");
+                        DlSourceMirrorEnabled
+                            ? "https://alist.8mi.tech/d/mirror/unlisted-versions-of-minecraft/Auto/version_manifest.json"
+                            : "https://zkitefly.github.io/unlisted-versions-of-minecraft/version_manifest.json");
                     File.WriteAllText(cacheFilePath, unlistedJson.ToString());
                 }
                 catch (Exception ex)
@@ -623,8 +624,7 @@ public static class ModDownload
             default:
             {
                 DlSourceLoader(loader,
-                    new List<KeyValuePair<ModLoader.LoaderTask<int, DlOptiFineListResult>, int>>
-                        { new(dlOptiFineListOfficialLoader, 60), new(dlOptiFineListBmclapiLoader, 60 + 60) },
+                    DlVersionListLoaders(dlOptiFineListOfficialLoader, 60, dlOptiFineListBmclapiLoader, 60 + 60),
                     loader.isForceRestarting);
                 break;
             }
@@ -792,8 +792,7 @@ public static class ModDownload
             default:
             {
                 DlSourceLoader(loader,
-                    new List<KeyValuePair<ModLoader.LoaderTask<int, DlForgeListResult>, int>>
-                        { new(dlForgeListOfficialLoader, 60), new(dlForgeListBmclapiLoader, 60 + 60) },
+                    DlVersionListLoaders(dlForgeListOfficialLoader, 60, dlForgeListBmclapiLoader, 60 + 60),
                     loader.isForceRestarting);
                 break;
             }
@@ -1011,8 +1010,7 @@ public static class ModDownload
             default:
             {
                 DlSourceLoader(loader,
-                    new List<KeyValuePair<ModLoader.LoaderTask<string, List<DlForgeVersionEntry>>, int>>
-                        { new(dlForgeVersionOfficialLoader, 60), new(dlForgeVersionBmclapiLoader, 60 + 60) },
+                    DlVersionListLoaders(dlForgeVersionOfficialLoader, 60, dlForgeVersionBmclapiLoader, 60 + 60),
                     loader.isForceRestarting);
                 break;
             }
@@ -1319,8 +1317,7 @@ public static class ModDownload
             default:
             {
                 DlSourceLoader(loader,
-                    new List<KeyValuePair<ModLoader.LoaderTask<int, DlNeoForgeListResult>, int>>
-                        { new(dlNeoForgeListOfficialLoader, 60), new(dlNeoForgeListBmclapiLoader, 60 + 60) },
+                    DlVersionListLoaders(dlNeoForgeListOfficialLoader, 60, dlNeoForgeListBmclapiLoader, 60 + 60),
                     loader.isForceRestarting);
                 break;
             }
@@ -1652,10 +1649,8 @@ public static class ModDownload
             default:
             {
                 DlSourceLoader(loader,
-                    new List<KeyValuePair<ModLoader.LoaderTask<int, DlLiteLoaderListResult>, int>>
-                    {
-                        new(dlLiteLoaderListOfficialLoader, 60), new(dlLiteLoaderListBmclapiLoader, 60 + 60)
-                    }, loader.isForceRestarting);
+                    DlVersionListLoaders(dlLiteLoaderListOfficialLoader, 60, dlLiteLoaderListBmclapiLoader, 60 + 60),
+                    loader.isForceRestarting);
                 break;
             }
         }
@@ -1799,8 +1794,7 @@ public static class ModDownload
             default:
             {
                 DlSourceLoader(loader,
-                    new List<KeyValuePair<ModLoader.LoaderTask<int, DlFabricListResult>, int>>
-                        { new(dlFabricListOfficialLoader, 60), new(dlFabricListBmclapiLoader, 60 + 60) },
+                    DlVersionListLoaders(dlFabricListOfficialLoader, 60, dlFabricListBmclapiLoader, 60 + 60),
                     loader.isForceRestarting);
                 break;
             }
@@ -1977,40 +1971,50 @@ public static class ModDownload
     public static string DlModRequest(string url) => DlModRequest<string>(url);
 
     /// <summary>
+    ///     构造 Mod API 请求的候选地址列表。官方源（2）下只请求官方地址，镜像需用户主动启用。
+    /// </summary>
+    private static List<KeyValuePair<string, int>> DlModRequestUrls(string url, string mirrorUrl, bool allowMirror)
+    {
+        var res = new List<KeyValuePair<string, int>>();
+        var solution = Config.Download.Comp.CompSourceSolution;
+        var useMirror = allowMirror && solution < 2 && !string.IsNullOrWhiteSpace(mirrorUrl) && mirrorUrl != url;
+
+        if (!useMirror)
+        {
+            res.Add(new KeyValuePair<string, int>(url, 5));
+            res.Add(new KeyValuePair<string, int>(url, 15));
+            return res;
+        }
+
+        switch (solution)
+        {
+            case 0:
+            {
+                res.Add(new KeyValuePair<string, int>(mirrorUrl, 5));
+                res.Add(new KeyValuePair<string, int>(mirrorUrl, 10));
+                res.Add(new KeyValuePair<string, int>(url, 15));
+                break;
+            }
+            default:
+            {
+                res.Add(new KeyValuePair<string, int>(url, 5));
+                res.Add(new KeyValuePair<string, int>(mirrorUrl, 5));
+                res.Add(new KeyValuePair<string, int>(url, 15));
+                res.Add(new KeyValuePair<string, int>(mirrorUrl, 10));
+                break;
+            }
+        }
+
+        return res;
+    }
+
+    /// <summary>
     ///     对可能涉及 Mod 镜像源的请求进行处理，返回字符串或 JSON 对象。
-    ///     调用 NetGetCodeByRequest，会进行重试。
+    ///     调用 Requester.FetchString，会进行重试。
     /// </summary>
     public static T DlModRequest<T>(string url)
     {
-        var urls = new List<KeyValuePair<string, int>>();
-        var mcimUrl = DlSourceModGet(url);
-        if ((mcimUrl ?? "") != (url ?? ""))
-            switch (Config.Download.Comp.CompSourceSolution)
-            {
-                case 0:
-                {
-                    urls.Add(new KeyValuePair<string, int>(mcimUrl, 5));
-                    urls.Add(new KeyValuePair<string, int>(mcimUrl, 10));
-                    urls.Add(new KeyValuePair<string, int>(url, 15));
-                    break;
-                }
-                case 1:
-                {
-                    urls.Add(new KeyValuePair<string, int>(url, 5));
-                    urls.Add(new KeyValuePair<string, int>(mcimUrl, 5));
-                    urls.Add(new KeyValuePair<string, int>(url, 15));
-                    urls.Add(new KeyValuePair<string, int>(mcimUrl, 10));
-                    break;
-                }
-
-                default:
-                {
-                    urls.Add(new KeyValuePair<string, int>(url, 5));
-                    urls.Add(new KeyValuePair<string, int>(url, 15));
-                    urls.Add(new KeyValuePair<string, int>(mcimUrl, 10));
-                    break;
-                }
-            }
+        var urls = DlModRequestUrls(url, DlSourceModGet(url), true);
 
         var exs = "";
         foreach (var Source in urls)
@@ -2048,35 +2052,7 @@ public static class ModDownload
     public static T DlModRequest<T>(string url, string method, string data, string contentType,
         bool allowMirror = false)
     {
-        var urls = new List<KeyValuePair<string, int>>();
-        var mcimUrl = DlSourceModGet(url);
-        if ((mcimUrl ?? "") != (url ?? ""))
-            switch (allowMirror ? Config.Download.Comp.CompSourceSolution : 2)
-            {
-                case 0:
-                {
-                    urls.Add(new KeyValuePair<string, int>(mcimUrl, 5));
-                    urls.Add(new KeyValuePair<string, int>(mcimUrl, 10));
-                    urls.Add(new KeyValuePair<string, int>(url, 15));
-                    break;
-                }
-                case 1:
-                {
-                    urls.Add(new KeyValuePair<string, int>(url, 5));
-                    urls.Add(new KeyValuePair<string, int>(mcimUrl, 5));
-                    urls.Add(new KeyValuePair<string, int>(url, 15));
-                    urls.Add(new KeyValuePair<string, int>(mcimUrl, 10));
-                    break;
-                }
-
-                default:
-                {
-                    urls.Add(new KeyValuePair<string, int>(url, 5));
-                    urls.Add(new KeyValuePair<string, int>(url, 15));
-                    urls.Add(new KeyValuePair<string, int>(mcimUrl, 10));
-                    break;
-                }
-            }
+        var urls = DlModRequestUrls(url, DlSourceModGet(url), allowMirror);
 
         var exs = "";
         foreach (var Source in urls)
@@ -2107,10 +2083,16 @@ public static class ModDownload
     private static bool dlPreferMojang;
 
     /// <summary>
+    ///     下载文件（而非获取版本列表）的时候，是否允许使用镜像源。
+    ///     官方源（2）下镜像完全不会被使用，需由用户在设置中主动选择镜像选项。
+    /// </summary>
+    public static bool DlSourceMirrorEnabled => Config.Download.FileSource < 2;
+
+    /// <summary>
     ///     下载文件（而非获取版本列表）的时候，是否优先使用官方源。
     /// </summary>
     public static bool DlSourcePreferMojang =>
-        Config.Download.FileSource == 2 ||
+        Config.Download.FileSource >= 2 ||
         (Config.Download.FileSource == 1 && dlPreferMojang);
 
     /// <summary>
@@ -2118,14 +2100,20 @@ public static class ModDownload
     /// </summary>
     public static IEnumerable<string> DlSourceOrder(IEnumerable<string> officialUrls, IEnumerable<string> mirrorUrls)
     {
+        if (!DlSourceMirrorEnabled) return officialUrls;
         return DlSourcePreferMojang ? officialUrls.Union(mirrorUrls) : mirrorUrls.Union(officialUrls);
     }
+
+    /// <summary>
+    ///     获取版本列表（而非下载文件）的时候，是否允许使用镜像源。
+    /// </summary>
+    public static bool DlVersionListMirrorEnabled => Config.Download.VersionListSource < 2;
 
     /// <summary>
     ///     获取版本列表（而非下载文件）的时候，是否优先使用官方源。
     /// </summary>
     public static bool DlVersionListPreferMojang =>
-        Config.Download.VersionListSource == 2 ||
+        Config.Download.VersionListSource >= 2 ||
         (Config.Download.VersionListSource == 1 && dlPreferMojang);
 
     /// <summary>
@@ -2134,6 +2122,7 @@ public static class ModDownload
     public static IEnumerable<string> DlVersionListOrder(IEnumerable<string> officialUrls,
         IEnumerable<string> mirrorUrls)
     {
+        if (!DlVersionListMirrorEnabled) return officialUrls;
         return DlVersionListPreferMojang ? officialUrls.Union(mirrorUrls) : mirrorUrls.Union(officialUrls);
     }
 
@@ -2159,6 +2148,11 @@ public static class ModDownload
     /// </summary>
     public static IEnumerable<string> DlSourceLibraryGet(string original)
     {
+        // 官方源模式下直接使用上游 maven；镜像源需用户主动启用
+        if (!DlSourceMirrorEnabled &&
+            new[] { "minecraftforge", "fabricmc", "neoforged" }.Any(k => original.Contains(k)))
+            return new[] { original };
+
         if (new[] { "minecraftforge", "fabricmc", "neoforged" }.Any(k => original.Contains(k))) // 不添加原版源
             return new[]
             {
@@ -2219,6 +2213,9 @@ public static class ModDownload
     /// <returns></returns>
     public static string DlSourceModGet(string original)
     {
+        // 官方源模式下不产生镜像地址（含 Mod 图标的兜底源），镜像需用户主动启用
+        if (Config.Download.Comp.CompSourceSolution >= 2) return original;
+
         return original.Replace("https://api.modrinth.com", "https://mod.mcimirror.top/modrinth")
             .Replace("https://api.curseforge.com", "https://mod.mcimirror.top/curseforge");
     }
@@ -2258,13 +2255,28 @@ public static class ModDownload
 
             default:
             {
-                Config.Download.Comp.CompSourceSolution = 1;
+                Config.Download.Comp.CompSourceSolution = 2; // 非法值回落到官方源
                 res.Add(original);
                 break;
             }
         }
 
         res.Add(original);
+        return res;
+    }
+
+    /// <summary>
+    ///     构造版本列表的加载器组合。官方源（2）下不加入镜像加载器，镜像需用户主动启用。
+    /// </summary>
+    private static List<KeyValuePair<ModLoader.LoaderTask<TInput, TOutput>, int>>
+        DlVersionListLoaders<TInput, TOutput>(ModLoader.LoaderTask<TInput, TOutput> officialLoader, int officialWait,
+            ModLoader.LoaderTask<TInput, TOutput> mirrorLoader, int mirrorWait)
+    {
+        var res = new List<KeyValuePair<ModLoader.LoaderTask<TInput, TOutput>, int>>
+        {
+            new(officialLoader, officialWait)
+        };
+        if (DlVersionListMirrorEnabled) res.Add(new(mirrorLoader, mirrorWait));
         return res;
     }
 

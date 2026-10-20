@@ -1,13 +1,18 @@
 ﻿using System.IO;
 using System.Security;
 using System.Windows;
+using PCL.Core.App;
 using PCL.Core.App.Localization;
 
 namespace PCL;
 
 public partial class PageHelpDetail : IRefreshable
 {
-    internal sealed record HelpContent(string SourcePath, string Title, string Xaml);
+    /// <summary>
+    ///     帮助页内容。<paramref name="FromNetwork"/> 标记该内容是否由网络地址下载而来，
+    ///     网络来源在本地优先策略下只保留展示、剥离事件动作。
+    /// </summary>
+    internal sealed record HelpContent(string SourcePath, string Title, string Xaml, bool FromNetwork = false);
 
     private HelpContent _content = null!;
 
@@ -23,7 +28,7 @@ public partial class PageHelpDetail : IRefreshable
     /// <summary>
     ///     从帮助 JSON 及同名 XAML 文件读取详情页数据。失败会抛出异常。
     /// </summary>
-    internal static HelpContent LoadContent(string jsonPath)
+    internal static HelpContent LoadContent(string jsonPath, bool fromNetwork = false)
     {
         if (!File.Exists(jsonPath))
             throw new FileNotFoundException("未找到帮助 JSON 文件", jsonPath);
@@ -43,7 +48,7 @@ public partial class PageHelpDetail : IRefreshable
         if (string.IsNullOrWhiteSpace(xaml))
             throw new InvalidDataException("帮助 XAML 文件为空");
 
-        return new HelpContent(jsonPath, titleElement.GetString()!, xaml);
+        return new HelpContent(jsonPath, titleElement.GetString()!, xaml, fromNetwork);
     }
 
     private void ApplyContent(HelpContent content)
@@ -55,11 +60,16 @@ public partial class PageHelpDetail : IRefreshable
         xaml =
             $"<StackPanel xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" xmlns:sys=\"clr-namespace:System;assembly=System.Runtime\" xmlns:x=\"http://schemas.microsoft.com/winfx/2006/xaml\" xmlns:local=\"clr-namespace:PCL;assembly=Plain Craft Launcher 2\">{xaml}</StackPanel>";
 
-        var element = (UIElement)ModBase.GetObjectFromXML(xaml, out var sanitizeResult);
-        foreach (var unsupported in sanitizeResult.UnsupportedTypesFound)
-            HintService.Hint(Lang.Text("Event.Sanitize.UnsupportedTypeHint", unsupported), HintType.Error);
-        foreach (var unknown in sanitizeResult.UnrecognizedTypes)
-            HintService.Hint(Lang.Text("Event.Sanitize.UnknownTypeHint", unknown), HintType.Error);
+        // 本地优先策略：网络下载的帮助页只保留展示，剥离事件动作。
+        var stripEvents = content.FromNetwork && !LocalFirstPolicy.AllowRemoteActions;
+        var element = (UIElement)ModBase.GetObjectFromXML(xaml, out var sanitizeResult, stripEvents);
+        if (!stripEvents)
+        {
+            foreach (var unsupported in sanitizeResult.UnsupportedTypesFound)
+                HintService.Hint(Lang.Text("Event.Sanitize.UnsupportedTypeHint", unsupported), HintType.Error);
+            foreach (var unknown in sanitizeResult.UnrecognizedTypes)
+                HintService.Hint(Lang.Text("Event.Sanitize.UnknownTypeHint", unknown), HintType.Error);
+        }
 
         _content = content;
         PanCustom.Children.Clear();
@@ -72,7 +82,7 @@ public partial class PageHelpDetail : IRefreshable
     {
         try
         {
-            ApplyContent(LoadContent(_content.SourcePath));
+            ApplyContent(LoadContent(_content.SourcePath, _content.FromNetwork));
         }
         catch (Exception ex)
         {

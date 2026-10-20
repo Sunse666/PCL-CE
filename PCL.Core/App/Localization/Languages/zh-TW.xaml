@@ -3189,6 +3189,7 @@
     <sys:String x:Key="Setup.Update.Error.NetworkFailed">無法取得最新版本資訊，請檢查網路連線</sys:String>
     <sys:String x:Key="Setup.Update.Install">下載並安裝</sys:String>
     <sys:String x:Key="Setup.Update.Latest">已是最新版本</sys:String>
+    <sys:String x:Key="Setup.Update.Disabled">啟動器更新已關閉，目前版本不會檢查或下載新版本。</sys:String>
     <sys:String x:Key="Setup.Update.MirrorChyanCdk.Get">取得 CDK</sys:String>
     <sys:String x:Key="Setup.Update.MirrorChyanCdk.Label">Mirror 醬 CDK</sys:String>
     <sys:String x:Key="Setup.Update.MirrorChyanCdk.ToolTip">Mirror 醬 (mirrorchyan.com) 是一個付費的第三方應用分發平台，用於提供有償高速下載源。&#xA;這是一項可選服務，不填入 CDK 不影響正常使用與更新。&#xA;如果你有 Mirror 醬的 CDK，可以提供給 PCL CE，啟動器會優先使用他們的高速下載源下載軟體更新，也能紓解社群公益更新伺服器的一些壓力……</sys:String>

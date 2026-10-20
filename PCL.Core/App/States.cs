@@ -255,9 +255,15 @@ public static partial class States
         [ConfigItem<int>("SystemSetupVersionIni", 1, ConfigSource.Local)] public partial int SetupVersionLocal { get; set; }
 
         /// <summary>
-        /// 启动器公告。
+        /// 启动器公告。当前构建由 <see cref="LocalFirstPolicy.AllowAnnouncement"/> 强制关闭，
+        /// 此项仅用于让设置界面呈现出与实际一致的状态。
         /// </summary>
-        [ConfigItem<int>("SystemSystemActivity", 0, ConfigSource.Local)] public partial int AnnounceSolution { get; set; }
+        [ConfigItem<int>("SystemSystemActivity", 2, ConfigSource.Local)] public partial int AnnounceSolution { get; set; }
+
+        /// <summary>
+        /// 下载源策略迁移版本。用于让存量用户应用一次官方源默认值。
+        /// </summary>
+        [ConfigItem<int>("SystemDownloadSourcePolicy", 0, ConfigSource.Local)] public partial int DownloadSourcePolicyVersion { get; set; }
 
     }
 

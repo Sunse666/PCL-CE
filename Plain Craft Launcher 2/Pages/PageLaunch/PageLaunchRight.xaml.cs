@@ -247,7 +247,10 @@ public partial class PageLaunchRight : IRefreshable
             }
         }
 
-        ModBase.RunInUi(() => LoadContent(content));
+        // 来源标记：预设与自定义主页中，凡是走 LoadFromNetwork 的内容都来自网络，
+        // 这类内容不允许携带可执行的本地动作（见 LoadContent）。
+        var contentFromNetwork = url is not null;
+        ModBase.RunInUi(() => LoadContent(content, contentFromNetwork));
     }
 
     /// <summary>
@@ -458,7 +461,9 @@ public partial class PageLaunchRight : IRefreshable
     ///     从文本内容中加载主页。
     ///     必须在 UI 线程调用。
     /// </summary>
-    private void LoadContent(string content)
+    /// <param name="content">主页 XAML 文本。</param>
+    /// <param name="fromNetwork">内容是否来自网络。本地优先策略下这类内容只保留展示，剥离全部事件动作。</param>
+    private void LoadContent(string content, bool fromNetwork = false)
     {
         lock (loadContentLock)
         {
@@ -487,8 +492,14 @@ public partial class PageLaunchRight : IRefreshable
                 content =
                     $"<StackPanel xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" xmlns:sys=\"clr-namespace:System;assembly=System.Runtime\" xmlns:x=\"http://schemas.microsoft.com/winfx/2006/xaml\" xmlns:local=\"clr-namespace:PCL;assembly=Plain Craft Launcher 2\">{content}</StackPanel>";
                 ModBase.Log($"[Page] 实例化：加载主页 UI 开始，最终内容长度：{content.Count()}");
-                PanCustom.Children.Add((UIElement)ModBase.GetObjectFromXML(content, out var sanitizeResult));
-                _ShowSanitizeHints(sanitizeResult);
+                // 本地优先策略：网络来源的主页内容只展示，不允许驱动本地动作
+                //（执行命令、下载文件、写配置等）。这与公告通道的处理保持一致。
+                var stripEvents = fromNetwork && !LocalFirstPolicy.AllowRemoteActions;
+                if (stripEvents)
+                    ModBase.Log("[Page] 本地优先策略已启用，已剥离网络主页中的事件动作");
+                PanCustom.Children.Add((UIElement)ModBase.GetObjectFromXML(content, out var sanitizeResult, stripEvents));
+                if (!stripEvents)
+                    _ShowSanitizeHints(sanitizeResult);
                 _ApplyHomepageLivePatchesFromFile();
             }
             catch (Exception ex)

@@ -7,10 +7,21 @@ using PCL.Network;
 
 namespace PCL
 {
+    /// <summary>
+    ///     自定义事件来源。远端来源指内容由服务器下发（如公告按钮），
+    ///     本地来源指用户自行编写的自定义主页 XAML 或本程序自身逻辑。
+    /// </summary>
+    public enum CustomEventSource
+    {
+        Local,
+        Remote
+    }
+
     public class CustomEvent
     {
         public EventType Type { get; set; } = EventType.None;
         public string Data { get; set; } = string.Empty;
+        public CustomEventSource Source { get; set; } = CustomEventSource.Local;
 
         public CustomEvent() { }
 
@@ -20,14 +31,28 @@ namespace PCL
             Data = data;
         }
 
-        public void Raise() => Raise(Type, Data);
+        public CustomEvent(EventType type, string data, CustomEventSource source) : this(type, data)
+        {
+            Source = source;
+        }
+
+        public void Raise() => Raise(Type, Data, Source);
 
         /// <summary>
         /// 静态入口：根据 EventType 分发给对应的 action 执行。
         /// </summary>
-        public static void Raise(EventType type, string arg)
+        public static void Raise(EventType type, string arg,
+            CustomEventSource source = CustomEventSource.Local)
         {
             if (type == EventType.None) return;
+
+            // 本地优先策略：远端下发的动作一律拒绝，避免云端内容驱动本地行为。
+            if (source == CustomEventSource.Remote && !LocalFirstPolicy.AllowRemoteActions)
+            {
+                ModBase.Log($"[Control] 本地优先策略已启用，拒绝执行远端自定义事件: {type}, {arg}");
+                return;
+            }
+
             ModBase.Log($"[Control] 执行自定义事件: {type}, {arg}");
 
             try
@@ -338,7 +363,9 @@ namespace PCL
                 {
                     var actualPaths = GetAbsoluteUrls(args[0], type);
                     var location = actualPaths[0];
-                    var content = PageHelpDetail.LoadContent(location);
+                    // 走到这里 args[0] 必然是 http/https 地址，内容是下载到临时目录后加载的，
+                    // 因此标记为网络来源，由页面按本地优先策略剥离事件动作。
+                    var content = PageHelpDetail.LoadContent(location, fromNetwork: true);
                     ModBase.RunInUiWait(() =>
                     {
                         var page = new PageHelpDetail(content);

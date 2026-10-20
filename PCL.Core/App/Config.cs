@@ -80,8 +80,9 @@ public static partial class Config
         [ConfigItem<int>("ToolDownloadFileConnection", 7)] public partial int FileConnectionLimit { get; set; }
         [ConfigItem<int>("ToolDownloadSpeed", 42)] public partial int SpeedLimit { get; set; }
         [ConfigItem<DownloadHttpMode>("ToolDownloadHttpMode", DownloadHttpMode.Auto)] public partial DownloadHttpMode HttpMode { get; set; }
-        [ConfigItem<int>("ToolDownloadSource", 1)] public partial int FileSource { get; set; }
-        [ConfigItem<int>("ToolDownloadVersion", 1)] public partial int VersionListSource { get; set; }
+        // 默认官方源（2）：镜像源需用户在设置中主动启用后才会被使用。
+        [ConfigItem<int>("ToolDownloadSource", 2)] public partial int FileSource { get; set; }
+        [ConfigItem<int>("ToolDownloadVersion", 2)] public partial int VersionListSource { get; set; }
         [ConfigItem<bool>("ToolDownloadAutoSelectVersion", true)] public partial bool AutoSelectInstance { get; set; }
         [ConfigItem<bool>("ToolFixAuthlib", true)] public partial bool FixAuthLib { get; set; }
 
@@ -95,7 +96,7 @@ public static partial class Config
             [ConfigItem<bool>("ToolDownloadIgnoreQuilt", true)] public partial bool IgnoreQuilt { get; set; }
             [ConfigItem<bool>("ToolDownloadAutoInstallDependencies", true)] public partial bool AutoInstallDependencies { get; set; }
             [ConfigItem<bool>("ToolDownloadClipboard", false)] public partial bool ReadClipboard { get; set; }
-            [ConfigItem<int>("ToolDownloadMod", 1)] public partial int CompSourceSolution { get; set; }
+            [ConfigItem<int>("ToolDownloadMod", 2)] public partial int CompSourceSolution { get; set; }
             [ConfigItem<int>("ToolModLocalNameStyle", 0)] public partial int UiCompNameSolution { get; set; }
             [ConfigItem<int>("ToolDownloadQuickBehavior", 0)] public partial int QuickDownloadBehavior { get; set; }
         }
@@ -118,9 +119,10 @@ public static partial class Config
     [ConfigGroup("Update")] partial class UpdateConfigGroup
     {
         /// <summary>
-        /// 自动更新行为。
+        /// 自动更新行为。当前构建由 <see cref="LocalFirstPolicy.AllowUpdate"/> 强制关闭，
+        /// 此项仅用于让设置界面呈现出与实际一致的状态。
         /// </summary>
-        [ConfigItem<LauncherAutoUpdateBehavior>("SystemSystemUpdate", LauncherAutoUpdateBehavior.DownloadAndAnnounce, ConfigSource.Local)] public partial LauncherAutoUpdateBehavior UpdateMode { get; set; }
+        [ConfigItem<LauncherAutoUpdateBehavior>("SystemSystemUpdate", LauncherAutoUpdateBehavior.Disable, ConfigSource.Local)] public partial LauncherAutoUpdateBehavior UpdateMode { get; set; }
 
         /// <summary>
         /// 更新分支。

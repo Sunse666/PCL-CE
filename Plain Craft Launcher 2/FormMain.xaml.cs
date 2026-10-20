@@ -265,8 +265,8 @@ public partial class FormMain
                             }
                     }
 
-                // 遥测提示
-                if (Config.System.TelemetryConfig.IsDefault())
+                // 遥测提示（本地优先策略下不询问用户，也不会上报）
+                if (LocalFirstPolicy.AllowTelemetry && Config.System.TelemetryConfig.IsDefault())
                 {
                     var selection = ModMain.MyMsgBox(
                                 Lang.Text("Main.Telemetry.Message"),
@@ -276,6 +276,7 @@ public partial class FormMain
                 // 启动加载器池
                 try
                 {
+                    LocalFirstPolicy.ApplyDownloadSourceDefaults(); // 存量用户一次性迁移到官方下载源
                     ModDownload.dlClientListMojangLoader.Start(1); // PCL 会同时根据这里的加载结果决定是否使用官方源进行下载
                     RunCountSub();
                     UpdateManager.serverLoader.Start(1);

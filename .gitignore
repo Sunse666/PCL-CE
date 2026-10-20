@@ -346,3 +346,6 @@ MaskFiles/
 # macOS
 
 **/.DS_Store
+
+# WorkBuddy 工作区数据（记忆、临时文件）
+.workbuddy/

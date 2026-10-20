@@ -27,8 +27,24 @@ public partial class PageSetupUpdate
         ComboSystemUpdateMode.SelectedIndex = (int)Config.Update.UpdateMode;
 
         TextCurrentVersion.Text = "PCL CE " + VersionNameFormat(ModBase.versionBaseName);
+
+        // 本地优先策略：更新通道整体关闭，不联网、不提示
+        if (!LocalFirstPolicy.AllowUpdate)
+        {
+            CardUpdate.Visibility = Visibility.Collapsed;
+            CardCheck.Visibility = Visibility.Visible;
+            TextCurrentDesc.Text = Lang.Text("Setup.Update.Disabled");
+            BtnCheckAgain.IsEnabled = false;
+            ComboSystemUpdateChannel.IsEnabled = false;
+            ComboSystemUpdateMode.IsEnabled = false;
+            TextMirrorCDK.IsEnabled = false;
+            BtnGetMirrorCDK.IsEnabled = false;
+        }
+
         ModAnimation.AniControlEnabled -= 1;
-        CheckUpdate();
+
+        if (LocalFirstPolicy.AllowUpdate)
+            CheckUpdate();
     }
 
     private async Task<UpdateStatus> IsLatestAsync()
@@ -63,6 +79,13 @@ public partial class PageSetupUpdate
 
     public async void CheckUpdate()
     {
+        if (!LocalFirstPolicy.AllowUpdate)
+        {
+            TextCurrentDesc.Text = Lang.Text("Setup.Update.Disabled");
+            BtnCheckAgain.IsEnabled = false;
+            return;
+        }
+
         ModBase.Log("[Update] 开始检查更新");
         CardUpdate.Visibility = Visibility.Collapsed;
         CardCheck.Visibility = Visibility.Visible;
