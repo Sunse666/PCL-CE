@@ -35,7 +35,15 @@ namespace PCL
         [GeneratedRegex(@"<Setter\b[^>]*?\bValue\s*=\s*""([^""]+)""[^>]*?\bProperty\s*=\s*""local:CustomEventService\.EventType""[^>]*(?:/\s*>|>\s*</Setter\s*>)")]
         private static partial Regex SetterEventTypeValueFirstRegex();
 
-        public static SanitizeResult Sanitize(string xaml)
+        /// <summary>
+        ///     清理 XAML 中的自定义事件声明。
+        /// </summary>
+        /// <param name="xaml">待清理的 XAML 文本。</param>
+        /// <param name="stripAllEvents">
+        ///     为 true 时剥离所有事件动作，只保留展示内容。
+        ///     用于来自网络的页面：本地优先策略下这类内容不允许驱动任何本地行为。
+        /// </param>
+        public static SanitizeResult Sanitize(string xaml, bool stripAllEvents = false)
         {
             var result = new SanitizeResult();
             var sanitized = xaml;
@@ -43,37 +51,37 @@ namespace PCL
             sanitized = EventTypeAttributeRegex().Replace(sanitized, match =>
             {
                 var rawValue = match.Groups[2].Value;
-                return ReplaceEventType(match, rawValue, result);
+                return ReplaceEventType(match, rawValue, result, stripAllEvents);
             });
 
             sanitized = EventTypePropertyElementRegex().Replace(sanitized, match =>
             {
                 var rawValue = match.Groups[2].Value.Trim();
-                return ReplaceEventType(match, rawValue, result);
+                return ReplaceEventType(match, rawValue, result, stripAllEvents);
             });
 
             sanitized = CustomEventTypePropertyElementRegex().Replace(sanitized, match =>
             {
                 var rawValue = match.Groups[2].Value.Trim();
-                return ReplaceOrRemovePropertyElement(match, rawValue, result);
+                return ReplaceOrRemovePropertyElement(match, rawValue, result, stripAllEvents);
             });
 
             sanitized = LocalCustomEventTypeAttributeRegex().Replace(sanitized, match =>
             {
                 var rawValue = match.Groups[2].Value;
-                return ReplaceEventType(match, rawValue, result);
+                return ReplaceEventType(match, rawValue, result, stripAllEvents);
             });
 
             sanitized = LocalCustomEventSelfClosingRegex().Replace(sanitized, match =>
             {
                 var rawValue = match.Groups[1].Value;
-                return _RemoveBadCustomEventElement(match, rawValue, result);
+                return _RemoveBadCustomEventElement(match, rawValue, result, stripAllEvents);
             });
 
             sanitized = LocalCustomEventOpenTagRegex().Replace(sanitized, match =>
             {
                 var rawValue = match.Groups[1].Value;
-                if (_IsBadType(rawValue, result))
+                if (_IsBadType(rawValue, result, stripAllEvents))
                 {
                     var elementName = "local:CustomEvent";
                     var afterTag = sanitized[(match.Index + match.Length)..];
@@ -85,10 +93,10 @@ namespace PCL
             });
 
             sanitized = SetterEventTypePropertyFirstRegex().Replace(sanitized, match =>
-                _ReplaceSetter(match, match.Groups[1].Value, result));
+                _ReplaceSetter(match, match.Groups[1].Value, result, stripAllEvents));
 
             sanitized = SetterEventTypeValueFirstRegex().Replace(sanitized, match =>
-                _ReplaceSetter(match, match.Groups[1].Value, result));
+                _ReplaceSetter(match, match.Groups[1].Value, result, stripAllEvents));
 
             RemoveElementsForTypes(result.UnsupportedTypesFound, ref sanitized);
             RemoveElementsForTypes(result.UnrecognizedTypes, ref sanitized);
@@ -100,8 +108,15 @@ namespace PCL
             return result;
         }
 
-        private static bool _IsBadType(string rawValue, SanitizeResult result)
+        private static bool _IsBadType(string rawValue, SanitizeResult result, bool stripAllEvents)
         {
+            if (stripAllEvents)
+            {
+                // 全量剥离：不区分类型，一律按“不受支持”处理，交给后续按值删除元素。
+                result.UnsupportedTypesFound.Add(rawValue);
+                return true;
+            }
+
             if (EventTypeMapper.IsUnsupportedType(rawValue))
             {
                 result.UnsupportedTypesFound.Add(rawValue);
@@ -117,9 +132,9 @@ namespace PCL
         }
 
         private static string _RemoveBadCustomEventElement(
-            Match match, string rawValue, SanitizeResult result)
+            Match match, string rawValue, SanitizeResult result, bool stripAllEvents)
         {
-            return _IsBadType(rawValue, result) ? "" : match.Value;
+            return _IsBadType(rawValue, result, stripAllEvents) ? "" : match.Value;
         }
 
         private static void RemoveElementsForTypes(List<string> types, ref string sanitized)
@@ -129,8 +144,16 @@ namespace PCL
                 sanitized = RemoveElementsWithEventType(sanitized, type, types);
         }
 
-        private static string ReplaceEventType(Match match, string rawValue, SanitizeResult result)
+        private static string ReplaceEventType(Match match, string rawValue, SanitizeResult result,
+            bool stripAllEvents)
         {
+            // 全量剥离时不做中英文转换：后续按值删除元素需要与原文保持一致。
+            if (stripAllEvents)
+            {
+                result.UnsupportedTypesFound.Add(rawValue);
+                return match.Value;
+            }
+
             if (EventTypeMapper.TryToEnglish(rawValue, out var englishName))
                 return match.Groups[1].Value + englishName + match.Groups[3].Value;
 
@@ -148,16 +171,17 @@ namespace PCL
         }
 
         private static string ReplaceOrRemovePropertyElement(
-            Match match, string rawValue, SanitizeResult result)
+            Match match, string rawValue, SanitizeResult result, bool stripAllEvents)
         {
-            if (_IsBadType(rawValue, result))
+            if (_IsBadType(rawValue, result, stripAllEvents))
                 return "";
-            return ReplaceEventType(match, rawValue, result);
+            return ReplaceEventType(match, rawValue, result, stripAllEvents);
         }
 
-        private static string _ReplaceSetter(Match match, string rawValue, SanitizeResult result)
+        private static string _ReplaceSetter(Match match, string rawValue, SanitizeResult result,
+            bool stripAllEvents)
         {
-            if (_IsBadType(rawValue, result))
+            if (_IsBadType(rawValue, result, stripAllEvents))
                 return "";
             if (EventTypeMapper.TryToEnglish(rawValue, out var englishName))
                 return match.Value.Replace($"Value=\"{rawValue}\"", $"Value=\"{englishName}\"");
@@ -191,9 +215,11 @@ namespace PCL
             xaml = Regex.Replace(xaml, propertyElementPattern, match =>
             {
                 var beforeMatch = xaml[..match.Index];
-                var lastOpenMatch = Regex.Match(beforeMatch, @"<([\w:]+)[^>]*>\s*$", RegexOptions.RightToLeft);
-                if (!lastOpenMatch.Success) return match.Value;
-                var parentElementName = lastOpenMatch.Groups[1].Value;
+                // 不能用 RegexOptions.RightToLeft：RTL 下 ([\w:]+) 只捕获到标签名的最后一个字符，
+                // 父元素名会变成 "l"，导致找不到闭合标签、属性元素永远删不掉。改为取最靠后的完整标签。
+                var openTags = Regex.Matches(beforeMatch, @"<([\w:]+)[^>]*>");
+                if (openTags.Count == 0) return match.Value;
+                var parentElementName = openTags[^1].Groups[1].Value;
 
                 var afterProperty = xaml[(match.Index + match.Length)..];
                 var parentCloseMatch = Regex.Match(afterProperty, $@"</{parentElementName}\s*>");
