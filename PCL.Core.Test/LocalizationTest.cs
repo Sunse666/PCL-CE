@@ -21,13 +21,27 @@ public class LocalizationTest
     {
         var baseKeys = LoadKeys("zh-CN");
 
-        foreach (var language in LanguageFiles.Where(language => language != "zh-CN"))
-        {
-            var keys = LoadKeys(language);
-            var missing = baseKeys.Except(keys).ToArray();
+        // 先收集所有语言的缺口再断言。若逐个语言 Assert，只会报出第一个缺失的语言，
+        // 补完一种又会冒出下一种，排查时必须反复跑测试才能看到全貌。
+        var gaps = LanguageFiles
+            .Where(language => language != "zh-CN")
+            .Select(language => (Language: language,
+                Missing: baseKeys.Except(LoadKeys(language))
+                    .OrderBy(key => key, StringComparer.Ordinal)
+                    .ToArray()))
+            .Where(gap => gap.Missing.Length > 0)
+            .ToArray();
 
-            Assert.IsEmpty(missing, $"{language} 缺少语言键：{string.Join(", ", missing)}");
-        }
+        if (gaps.Length == 0)
+            return;
+
+        const int previewCount = 20;
+        var summary = string.Join("；", gaps.Select(gap => $"{gap.Language} 缺 {gap.Missing.Length} 键"));
+        var detail = string.Join(Environment.NewLine, gaps.Select(gap =>
+            $"[{gap.Language}] {gap.Missing.Length} 个，例如：{string.Join(", ", gap.Missing.Take(previewCount))}" +
+            (gap.Missing.Length > previewCount ? " …" : "")));
+
+        Assert.Fail($"以下语言未与 zh-CN 的 {baseKeys.Count} 个语言键对齐（{summary}）：{Environment.NewLine}{detail}");
     }
 
 
